@@ -802,6 +802,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
      */
     public synchronized void shutdown(boolean fullyShutDown) {
         if (!canShutdown()) {
+            if (fullyShutDown && zkDb != null) {
+                zkDb.clear();
+            }
             LOG.debug("ZooKeeper server is not running, so not proceeding to shutdown!");
             return;
         }
@@ -1394,7 +1397,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
         if (!readOnly && this instanceof ReadOnlyZooKeeperServer) {
             String msg = "Refusing session request for not-read-only client " + cnxn.getRemoteSocketAddress();
             LOG.info(msg);
-            throw new CloseRequestException(msg, ServerCnxn.DisconnectReason.CLIENT_ZXID_AHEAD);
+            throw new CloseRequestException(msg, ServerCnxn.DisconnectReason.NOT_READ_ONLY_CLIENT);
         }
         if (connReq.getLastZxidSeen() > zkDb.dataTree.lastProcessedZxid) {
             String msg = "Refusing session request for client "
@@ -1406,7 +1409,7 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
                          + " client must try another server";
 
             LOG.info(msg);
-            throw new CloseRequestException(msg, ServerCnxn.DisconnectReason.NOT_READ_ONLY_CLIENT);
+            throw new CloseRequestException(msg, ServerCnxn.DisconnectReason.CLIENT_ZXID_AHEAD);
         }
         int sessionTimeout = connReq.getTimeOut();
         byte[] passwd = connReq.getPasswd();
@@ -2172,4 +2175,9 @@ public class ZooKeeperServer implements SessionExpirer, ServerStats.Provider {
     public boolean isReconfigEnabled() {
         return this.reconfigEnabled;
     }
+
+    public ZooKeeperServerShutdownHandler getZkShutdownHandler() {
+        return zkShutdownHandler;
+    }
+
 }
